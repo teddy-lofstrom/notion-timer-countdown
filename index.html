@@ -15,7 +15,17 @@
     --fs-time: clamp(48px, 10vw, 140px);
   }
   [data-theme="dark"]{ --bg:#191919; --fg:#f2f2f2; --subtle:#c9c9c9; --outline:rgba(255,255,255,.08); }
-  html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:var(--font); }
+
+  /* Ingen scrollbar */
+  html,body{
+    height:100%;
+    margin:0;
+    background:var(--bg);
+    color:var(--fg);
+    font-family:var(--font);
+    overflow:hidden; /* ← tar bort scroll-baren */
+  }
+
   .app{ min-height:100dvh; display:grid; grid-template-rows:auto auto 1fr auto; gap:10px; padding:min(24px,4vw); max-width:900px; margin:0 auto; }
   .title{ text-align:center; font-weight:800; letter-spacing:.2px; font-size:var(--fs-title); }
   .subtitle{ text-align:center; font-weight:600; color:var(--subtle); font-size:var(--fs-subtitle); }
@@ -40,8 +50,8 @@
   <div class="settings" id="settings" aria-modal="true" role="dialog">
     <div class="panel">
       <h2>Perioder</h2>
-      <p>Lägg till tidsperioder. Den här panelen påverkar både denna timer och Progress‑baren (delad lagring).</p>
-      <div style="margin-bottom:10px"><label style="display:flex;align-items:center;gap:10px;color:var(--subtle)"><input type="checkbox" id="osSync"> Följ datorns mörkt/ljust läge (prefers‑color‑scheme)</label></div>
+      <p>Lägg till tidsperioder. Den här panelen påverkar både denna timer och Progress-baren (delad lagring).</p>
+      <div style="margin-bottom:10px"><label style="display:flex;align-items:center;gap:10px;color:var(--subtle)"><input type="checkbox" id="osSync"> Följ datorns mörkt/ljust läge (prefers-color-scheme)</label></div>
       <div id="rows"></div>
       <div class="actions">
         <button class="btn" id="add">+ Lägg till period</button>
@@ -50,7 +60,7 @@
         <button class="btn" id="close">Stäng</button>
       </div>
       <p class="note" id="storageNote"></p>
-      <p class="note">Tema växlar kring soluppgång/solnedgång för Västerås (59.61°N, 16.55°E) när OS‑sync är av.</p>
+      <p class="note">Tema växlar kring soluppgång/solnedgång för Västerås (59.61°N, 16.55°E) när OS-sync är av.</p>
     </div>
   </div>
 <script>
