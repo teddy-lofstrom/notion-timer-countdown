@@ -1,0 +1,108 @@
+<!-- ===== FILE 1: timer-panel.html ===== -->
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+<title>Timer – Panel (Notion)</title>
+<style>
+  :root{
+    --font: -apple-system,BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    --bg: #FFF; --fg: #111; --subtle: #575757; --outline: rgba(0,0,0,.08);
+    --danger-bg:#A5402D; --danger-fg:#fff;
+    --fs-title: clamp(20px, 2.2vw, 28px);
+    --fs-subtitle: clamp(14px, 1.4vw, 18px);
+    --fs-time: clamp(48px, 10vw, 140px);
+  }
+  [data-theme="dark"]{ --bg:#191919; --fg:#f2f2f2; --subtle:#c9c9c9; --outline:rgba(255,255,255,.08); }
+  html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:var(--font); }
+  .app{ min-height:100dvh; display:grid; grid-template-rows:auto auto 1fr auto; gap:10px; padding:min(24px,4vw); max-width:900px; margin:0 auto; }
+  .title{ text-align:center; font-weight:800; letter-spacing:.2px; font-size:var(--fs-title); }
+  .subtitle{ text-align:center; font-weight:600; color:var(--subtle); font-size:var(--fs-subtitle); }
+  .time{ display:grid; place-items:center; text-align:center; font-weight:900; line-height:1; letter-spacing:.3px; font-size:var(--fs-time); white-space:nowrap; }
+  .fab{ position:fixed; right:12px; top:12px; width:44px; height:44px; border-radius:12px; display:grid; place-items:center; background:color-mix(in oklab, var(--bg) 92%, #000 0%); color:var(--fg); border:1px solid var(--outline); font-size:18px; cursor:pointer; }
+  .settings{ position:fixed; inset:0; background:color-mix(in oklab, var(--bg) 86%, transparent); backdrop-filter: blur(6px); display:none; z-index:50; }
+  .panel{ max-width:900px; margin:0 auto; background:var(--bg); border:1px solid var(--outline); border-radius:18px; padding:18px; }
+  .row{ display:grid; grid-template-columns:1.2fr 1fr 1fr auto; gap:10px; align-items:center; margin:.5em 0; }
+  .row input, .btn{ padding:.75em .9em; border-radius:12px; border:1px solid var(--outline); background:color-mix(in oklab, var(--bg) 92%, #000 0%); color:var(--fg); font-size:14px; }
+  .actions{ display:flex; gap:10px; flex-wrap:wrap; }
+  .note{ color:var(--subtle); opacity:.85; }
+  body.danger .time{ color:var(--danger-fg); }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="title" id="title">Tid kvar</div>
+    <div class="subtitle" id="subtitle">–</div>
+    <div class="time" id="time">--</div>
+  </div>
+  <div class="fab" id="openSettings" aria-label="Inställningar" title="Inställningar">⚙︎</div>
+  <div class="settings" id="settings" aria-modal="true" role="dialog">
+    <div class="panel">
+      <h2>Perioder</h2>
+      <p>Lägg till tidsperioder. Den här panelen påverkar både denna timer och Progress‑baren (delad lagring).</p>
+      <div style="margin-bottom:10px"><label style="display:flex;align-items:center;gap:10px;color:var(--subtle)"><input type="checkbox" id="osSync"> Följ datorns mörkt/ljust läge (prefers‑color‑scheme)</label></div>
+      <div id="rows"></div>
+      <div class="actions">
+        <button class="btn" id="add">+ Lägg till period</button>
+        <button class="btn" id="save">Spara</button>
+        <button class="btn" id="reset">Återställ standard</button>
+        <button class="btn" id="close">Stäng</button>
+      </div>
+      <p class="note" id="storageNote"></p>
+      <p class="note">Tema växlar kring soluppgång/solnedgång för Västerås (59.61°N, 16.55°E) när OS‑sync är av.</p>
+    </div>
+  </div>
+<script>
+const $ = s => document.querySelector(s);
+const title=$('#title'), subtitle=$('#subtitle'), timeEl=$('#time');
+const settings=$('#settings'), storageNote=$('#storageNote');
+const osSyncEl=$('#osSync');
+const LAT=59.6099, LON=16.5448; // Västerås
+const DEFAULT_PERIODS=[{name:"Morgon",start:"06:30",end:"08:00"},{name:"Förmiddag",start:"08:00",end:"12:00"},{name:"Lunch",start:"12:00",end:"13:00"},{name:"Eftermiddag",start:"13:00",end:"17:00"},{name:"Kväll",start:"17:00",end:"22:15"},{name:"Kvällsrutin",start:"22:15",end:"22:30"},{name:"Natt",start:"22:30",end:"06:30"}];
+const HAS_STORAGE=(()=>{try{localStorage.setItem('_x','1');localStorage.removeItem('_x');return true;}catch(e){return false;}})();
+const getRaw=k=>HAS_STORAGE?localStorage.getItem(k):null; const setRaw=(k,v)=>{try{if(!HAS_STORAGE)return false;localStorage.setItem(k,v);return true;}catch(e){return false;}};
+const THEME_KEY='walltimer.theme.osSync';
+function norm(v){ if(v==null) return "00:00"; v=String(v).trim().replace(/[.,;\-\s]+/g,':'); const m=v.match(/^(\d{1,2})(?::?(\d{1,2}))?/); let h=m&&m[1]!=null?parseInt(m[1],10):0; let mi=m&&m[2]!=null?parseInt(m[2],10):0; if(isNaN(h))h=0; if(isNaN(mi))mi=0; h=Math.max(0,Math.min(23,h)); mi=Math.max(0,Math.min(59,mi)); return (h<10?'0':'')+h+':'+(mi<10?'0':'')+mi; }
+const t2m=t=>{const [h,m]=norm(t).split(':').map(Number);return (h%24)*60+(m||0);} ;
+const pad2=x=>(x<10?'0':'')+x; function fmt(ms){let s=Math.max(0, Math.floor(ms/1000)),h=Math.floor(s/3600);s-=h*3600;let m=Math.floor(s/60);s-=m*60;return h+'h '+m+'m '+pad2(s)+'s';}
+function sanitizeArray(a){return a.map(p=>({name:String(p.name||'Period'),start:norm(p.start),end:norm(p.end)}));}
+let MEMORY_PERIODS=null; function getPeriods(){ if(MEMORY_PERIODS) return MEMORY_PERIODS.slice(); const raw=getRaw('walltimer.periods'); if(raw){ try{ const a=JSON.parse(raw); if(Array.isArray(a)&&a.length){ MEMORY_PERIODS=sanitizeArray(a); return MEMORY_PERIODS.slice(); } }catch(e){} } MEMORY_PERIODS=sanitizeArray(DEFAULT_PERIODS); return MEMORY_PERIODS.slice(); }
+function setPeriods(p){ MEMORY_PERIODS=sanitizeArray(p); const ok=setRaw('walltimer.periods', JSON.stringify(MEMORY_PERIODS)); storageNote.textContent= ok? 'Sparat lokalt.' : 'Obs: Lagring låst – använder minneslagring.'; }
+function expand(ps){ const out=[]; for(const p of ps){ const a=t2m(p.start), b=t2m(p.end); if(b>=a) out.push({name:p.name,a,b}); else { out.push({name:p.name,a,b:1440}); out.push({name:p.name,a:0,b}); } } out.sort((x,y)=>x.a-y.a); return out; }
+function pick(ps){ const n=new Date(); const now=n.getHours()*60+n.getMinutes()+n.getSeconds()/60; const list=expand(ps); let idx=-1,cur=null; for(let i=0;i<list.length;i++){ const p=list[i]; if(now>=p.a && now<p.b){ idx=i; cur=p; break; } } if(idx===-1){ let nxtIdx=list.findIndex(p=>p.a>now); if(nxtIdx===-1) nxtIdx=0; return { idx:-1, list, cur:{name:'Paus',a:now,b:list[nxtIdx].a}, nxt:list[nxtIdx] }; } let nxt=null; for(let k=1;k<=list.length;k++){ const cand=list[(idx+k)%list.length]; if(cand.name!==list[idx].name){ nxt=cand; break; } } if(!nxt) nxt=list[(idx+1)%list.length]; return { idx, list, cur:list[idx], nxt };
+}
+function mergedSpan(list, idx){ const cur=list[idx]; let start=cur.a,end=cur.b; if(cur.b===1440){ const next=list[(idx+1)%list.length]; if(next && next.name===cur.name && next.a===0){ end=1440+next.b; } } if(cur.a===0){ const prev=list[(idx-1+list.length)%list.length]; if(prev && prev.name===cur.name && prev.b===1440){ start=prev.a; end=1440+cur.b; } } return {start,end}; }
+function wrapDiff(nowMin,start,end){ let n=nowMin; if(end>1440 && n<start) n+=1440; const total=(end-start)*60*1000; const passed=(n-start)*60*1000; const remain=Math.max(0,total-passed); return {total,passed,remain}; }
+function setTheme(mode){ document.documentElement.setAttribute('data-theme', mode==='dark'?'dark':'light'); }
+function getOsPref(){ return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+function toRad(d){return d*Math.PI/180;} function toDeg(r){return r*180/Math.PI;} function dayOfYear(d){ const n=new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const start=new Date(Date.UTC(d.getFullYear(),0,0)); return Math.floor((n-start)/86400000); }
+function solarTimes(date,lat,lon){ const n=dayOfYear(date); const lngHour=lon/15; function calc(isRise){ const t=n+(((isRise?6:18)-lngHour)/24); const M=(0.9856*t)-3.289; let L=M+(1.916*Math.sin(toRad(M)))+(0.020*Math.sin(toRad(2*M)))+282.634; L=(L+360)%360; let RA=toDeg(Math.atan(0.91764*Math.tan(toRad(L)))); RA=(RA+360)%360; const Lq=Math.floor(L/90)*90; const RAq=Math.floor(RA/90)*90; RA=RA+(Lq-RAq); RA/=15; const sinDec=0.39782*Math.sin(toRad(L)); const cosDec=Math.cos(Math.asin(sinDec)); const cosH=(Math.cos(toRad(90.833))-(sinDec*Math.sin(toRad(lat))))/(cosDec*Math.cos(toRad(lat))); if(cosH>1||cosH<-1) return null; const H=isRise? (360-toDeg(Math.acos(cosH))) : toDeg(Math.acos(cosH)); const Hh=H/15; const T=Hh+RA-(0.06571*t)-6.622; let UT=(T-lngHour)%24; if(UT<0) UT+=24; const hours=Math.floor(UT); const mins=Math.round((UT-hours)*60); return new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours, mins, 0); }
+  return {sunrise:calc(true), sunset:calc(false)}; }
+let themeTimer=null; function scheduleThemeBySun(){ if(themeTimer){clearTimeout(themeTimer);themeTimer=null;} const now=new Date(); const {sunrise,sunset}=solarTimes(now,LAT,LON); let nextSwitch=null, mode='light'; if(sunrise&&sunset){ if(now>=sunset){ mode='dark'; const t=new Date(now); t.setDate(now.getDate()+1); nextSwitch=solarTimes(t,LAT,LON).sunrise; } else if(now<sunrise){ mode='dark'; nextSwitch=sunrise; } else { mode='light'; nextSwitch=sunset; } } else { mode=getOsPref(); nextSwitch=new Date(now.getTime()+3600*1000); }
+  setTheme(mode); const wait=Math.max(1000, nextSwitch-now); themeTimer=setTimeout(scheduleThemeBySun, wait);
+}
+function applyTheme(){ const followOS = getRaw(THEME_KEY)==='1'; osSyncEl.checked=followOS; if(followOS){ setTheme(getOsPref()); } else { scheduleThemeBySun(); } }
+if(window.matchMedia){ const mq=window.matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener?.('change',e=>{ if(getRaw(THEME_KEY)==='1') setTheme(e.matches?'dark':'light'); }); }
+function loop(){ const ps=getPeriods(); const pickRes=pick(ps); const cur=pickRes.cur, nxt=pickRes.nxt; const n=new Date(); const nMin=n.getHours()*60+n.getMinutes()+n.getSeconds()/60; let spanStart=cur.a, spanEnd=cur.b; if(pickRes.idx!==-1){ const span=mergedSpan(pickRes.list,pickRes.idx); spanStart=span.start; spanEnd=span.end; } const {total,passed,remain}=wrapDiff(nMin,spanStart,spanEnd);
+  const curEndMin=((spanEnd%1440)+1440)%1440; const curEndH=pad2(Math.floor(curEndMin/60)), curEndM=pad2(curEndMin%60); const nxtStartH=pad2(Math.floor(nxt.a/60)), nxtStartM=pad2(nxt.a%60);
+  title.textContent=`Tid kvar av ${cur.name} (slutar kl ${curEndH}:${curEndM})`;
+  subtitle.textContent=`Nästa: ${nxt.name} → ${nxtStartH}:${nxtStartM}`;
+  timeEl.textContent=fmt(remain);
+  if(remain<=10*60*1000) document.body.classList.add('danger'); else document.body.classList.remove('danger');
+  requestAnimationFrame(loop);
+}
+function openSettings(v){ settings.style.display=(v===false)?'none':'block'; storageNote.textContent=HAS_STORAGE?"":"Obs: Lagring låst – använder minneslagring."; }
+function rowTpl(p,i){ return `<div class="row" data-i="${i}">\n  <input type="text" value="${p.name.replace(/\"/g,'&quot;')}" aria-label="Namn" placeholder="Namn (t.ex. Läggdags)" />\n  <input type="time" value="${norm(p.start)}" aria-label="Start" />\n  <input type="time" value="${norm(p.end)}" aria-label="Slut" />\n  <button class="btn" data-del="${i}">Ta bort</button>\n</div>`; }
+function renderRows(){ const rows=$('#rows'); const ps=getPeriods(); rows.innerHTML=ps.map(rowTpl).join(''); }
+function saveRows(){ if(document.activeElement&&document.activeElement.blur) document.activeElement.blur(); const arr=[...document.querySelectorAll('.row')].map(r=>{ const ins=[...r.querySelectorAll('input')]; return {name:ins[0].value||'Period', start:norm(ins[1].value), end:norm(ins[2].value)}; }); setPeriods(arr); renderRows(); openSettings(false); }
+$('#openSettings').addEventListener('click',()=>{ renderRows(); openSettings(true); });
+$('#close').addEventListener('click',()=>openSettings(false));
+$('#save').addEventListener('click',saveRows);
+$('#add').addEventListener('click',()=>{ const ps=getPeriods(); ps.push({name:'Ny period',start:'12:00',end:'13:00'}); setPeriods(ps); renderRows(); });
+$('#reset').addEventListener('click',()=>{ if(confirm('Återställ perioderna till standard? Dina egna ändringar ersätts.')){ setPeriods(DEFAULT_PERIODS); renderRows(); openSettings(false);} });
+osSyncEl.addEventListener('change',()=>{ setRaw(THEME_KEY, osSyncEl.checked?'1':'0'); applyTheme(); });
+(function init(){ if(getRaw(THEME_KEY)==null) setRaw(THEME_KEY,'0'); applyTheme(); loop(); })();
+</script>
+</body>
+</html>
