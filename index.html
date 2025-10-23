@@ -50,42 +50,18 @@
   .title{ font-weight:800; letter-spacing:.2px; font-size:var(--fs-title); margin:0; }
   .subtitle{ font-weight:600; color:var(--subtle); font-size:var(--fs-subtitle); margin:0; }
 
-  /* Stabil, segmenterad tid utan layout-skift */
   .time{
-    display:inline-grid;               /* håller ihop som en rad */
-    grid-auto-flow:column;
-    gap:0.5em;
-    align-content:center;
-    align-items:baseline;
-    line-height:1;
-    font-weight:900; letter-spacing:.3px;
-    font-size:var(--fs-time);
+    display:grid; align-content:center;
+    line-height:1; font-weight:900; letter-spacing:.3px;
+    font-size:var(--fs-time); white-space:nowrap;
     margin-top:calc(var(--stack-gap) * 0.5);
-    white-space:nowrap;
-    font-kerning:none;
-  }
-  .seg{
-    display:inline-grid;
-    grid-auto-flow:column;
-    align-items:baseline;
-    gap:.18em;
-  }
-  .num{
-    display:inline-block;
-    width:2ch;                /* exakt två tecken bred (00–59) */
-    text-align:right;
+    /* Stabil sifferbredd = inget hopp */
     font-variant-numeric: tabular-nums lining-nums;
     font-feature-settings: "tnum" 1, "lnum" 1;
-  }
-  .unit{
-    display:inline-block;
-    width:1ch;                /* enhet håller fast bredd */
-    opacity:.7;
-    font-weight:800;
-    letter-spacing:.2px;
+    font-kerning: none;
   }
 
-  /* Diskret settings-knapp i nedre vänstra hörnet (ur vägen för högerlinjeringen) */
+  /* Diskret settings-knapp i nedre vänstra hörnet */
   .fab{
     position: fixed;
     left: max(12px, env(safe-area-inset-left) + 8px);
@@ -112,6 +88,7 @@
     outline: none;
   }
   .fab:focus-visible{ box-shadow: 0 0 0 2px color-mix(in oklab, var(--fg) 20%, transparent); }
+
   @media (max-width: 520px){
     .fab{ width: 28px; height: 28px; font-size: 13px; }
   }
@@ -134,7 +111,7 @@
   <div class="app">
     <div class="title" id="title">Tid kvar</div>
     <div class="subtitle" id="subtitle">–</div>
-    <div class="time" id="time" aria-live="polite">--</div>
+    <div class="time" id="time">--</div>
   </div>
 
   <button class="fab" id="openSettings" aria-label="Inställningar" title="Inställningar">⚙︎</button>
@@ -185,19 +162,12 @@ function norm(v){
 const t2m=t=>{const [h,m]=norm(t).split(':').map(Number);return (h%24)*60+(m||0);} ;
 const pad2=x=>(x<10?'0':'')+x;
 
-/* Bygg segmenterad HTML så bredden är konstant */
-function timeHTML(ms){
+/* Stabiliserad formattering: två siffror för timmar, minuter och sekunder */
+function fmt(ms){
   let s=Math.max(0, Math.floor(ms/1000));
   let h=Math.floor(s/3600); s-=h*3600;
   let m=Math.floor(s/60);   s-=m*60;
-  const hh=pad2(h), mm=pad2(m), ss=pad2(s);
-  const aria=`${hh} timmar ${mm} minuter ${ss} sekunder`;
-  timeEl.setAttribute('aria-label', aria);
-  return `
-    <span class="seg"><span class="num">${hh}</span><span class="unit">h</span></span>
-    <span class="seg"><span class="num">${mm}</span><span class="unit">m</span></span>
-    <span class="seg"><span class="num">${ss}</span><span class="unit">s</span></span>
-  `;
+  return pad2(h)+'h '+pad2(m)+'m '+pad2(s)+'s';
 }
 
 function sanitizeArray(a){return a.map(p=>({name:String(p.name||'Period'),start:norm(p.start),end:norm(p.end)}));}
@@ -325,9 +295,9 @@ function loop(){
   const curEndH=pad2(Math.floor(curEndMin/60)), curEndM=pad2(curEndMin%60);
   const nxtStartH=pad2(Math.floor(nxt.a/60)), nxtStartM=pad2(nxt.a%60);
 
-  title.textContent=`Tid kvar av ${cur.name} (slutar kl ${curEndH}:${curEndM})`;
-  subtitle.textContent=`Nästa: ${nxt.name} → ${nxtStartH}:${nxtStartM}`;
-  timeEl.innerHTML = timeHTML(remain);   // <-- segmenterad rendering
+  title.textContent=Tid kvar av ${cur.name} (slutar kl ${curEndH}:${curEndM});
+  subtitle.textContent=Nästa: ${nxt.name} → ${nxtStartH}:${nxtStartM};
+  timeEl.textContent=fmt(remain);
 
   if(remain<=10*60*1000) document.body.classList.add('danger');
   else document.body.classList.remove('danger');
@@ -340,12 +310,12 @@ function openSettings(v){
   storageNote.textContent=HAS_STORAGE?"":"Obs: Lagring låst – använder minneslagring.";
 }
 function rowTpl(p,i){
-  return `<div class="row" data-i="${i}">
+  return <div class="row" data-i="${i}">
   <input type="text" value="${p.name.replace(/\"/g,'&quot;')}" aria-label="Namn" placeholder="Namn (t.ex. Läggdags)" />
   <input type="time" value="${norm(p.start)}" aria-label="Start" />
   <input type="time" value="${norm(p.end)}" aria-label="Slut" />
   <button class="btn" data-del="${i}">Ta bort</button>
-</div>`;
+</div>;
 }
 function renderRows(){ const rows=$('#rows'); const ps=getPeriods(); rows.innerHTML=ps.map(rowTpl).join(''); }
 function saveRows(){
