@@ -13,7 +13,7 @@
     --fs-title: clamp(20px, 2.2vw, 28px);
     --fs-subtitle: clamp(14px, 1.4vw, 18px);
     --fs-time: clamp(48px, 10vw, 140px);
-    --stack-gap: 6px; /* kontrollera avståndet mellan raderna */
+    --stack-gap: 6px;
   }
   [data-theme="dark"]{ --bg:#191919; --fg:#f2f2f2; --subtle:#c9c9c9; --outline:rgba(255,255,255,.08); }
 
@@ -42,43 +42,47 @@
   }
   @supports (height: 100svh){ .app{ min-height:100svh; } }
 
-  /* Högerjustera allt innehåll */
+  /* Högerjusterat innehåll */
   .title, .subtitle, .time{
-    justify-self:end;       /* placera mot höger i grid */
-    text-align:right;       /* textens inre justering */
+    justify-self:end;
+    text-align:right;
   }
-
-  .title{
-    font-weight:800;
-    letter-spacing:.2px;
-    font-size:var(--fs-title);
-    margin:0;               /* ta bort default-marginal */
-  }
-  .subtitle{
-    font-weight:600;
-    color:var(--subtle);
-    font-size:var(--fs-subtitle);
-    margin:0;               /* minimal vertikal spacing */
-  }
+  .title{ font-weight:800; letter-spacing:.2px; font-size:var(--fs-title); margin:0; }
+  .subtitle{ font-weight:600; color:var(--subtle); font-size:var(--fs-subtitle); margin:0; }
   .time{
-    display:grid;
-    align-content:center;
-    line-height:1;
-    font-weight:900;
-    letter-spacing:.3px;
-    font-size:var(--fs-time);
-    white-space:nowrap;
-    margin-top:calc(var(--stack-gap) * 0.5); /* lite luft före timern */
+    display:grid; align-content:center;
+    line-height:1; font-weight:900; letter-spacing:.3px;
+    font-size:var(--fs-time); white-space:nowrap;
+    margin-top:calc(var(--stack-gap) * 0.5);
   }
 
+  /* Diskret settings-knapp, flyttad till vänster */
   .fab{
-    position:fixed; right:12px; top:12px;
-    width:44px; height:44px; border-radius:12px;
-    display:grid; place-items:center;
-    background:color-mix(in oklab, var(--bg) 92%, #000 0%);
-    color:var(--fg); border:1px solid var(--outline);
-    font-size:18px; cursor:pointer;
+    position: fixed;
+    left: 12px;   /* flyttad från right till left */
+    top: 12px;
+    width: 36px; height: 36px;  /* lite mindre */
+    border-radius: 10px;
+    display: grid; place-items: center;
+    background: transparent;    /* ingen tung bakgrund */
+    color: var(--subtle);       /* diskret färg */
+    border: 1px solid transparent;
+    font-size: 16px;            /* mindre ikon */
+    cursor: pointer;
+    opacity: .45;               /* halvtransparent som standard */
+    transition: opacity .2s ease, transform .2s ease, color .2s ease, border-color .2s ease;
+    z-index: 60;                /* över innehållet men under ev. dialog */
   }
+  .fab:hover,
+  .fab:focus-visible{
+    opacity: .95;
+    color: var(--fg);
+    transform: translateY(-1px);
+    border-color: var(--outline);
+    outline: none;
+  }
+  .fab:focus-visible{ box-shadow: 0 0 0 2px color-mix(in oklab, var(--fg) 20%, transparent); }
+
   .settings{
     position:fixed; inset:0;
     background:color-mix(in oklab, var(--bg) 86%, transparent);
@@ -100,7 +104,7 @@
     <div class="time" id="time">--</div>
   </div>
 
-  <div class="fab" id="openSettings" aria-label="Inställningar" title="Inställningar">⚙︎</div>
+  <button class="fab" id="openSettings" aria-label="Inställningar" title="Inställningar">⚙︎</button>
 
   <div class="settings" id="settings" aria-modal="true" role="dialog">
     <div class="panel">
