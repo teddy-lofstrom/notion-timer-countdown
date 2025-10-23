@@ -49,11 +49,16 @@
   }
   .title{ font-weight:800; letter-spacing:.2px; font-size:var(--fs-title); margin:0; }
   .subtitle{ font-weight:600; color:var(--subtle); font-size:var(--fs-subtitle); margin:0; }
+
   .time{
     display:grid; align-content:center;
     line-height:1; font-weight:900; letter-spacing:.3px;
     font-size:var(--fs-time); white-space:nowrap;
     margin-top:calc(var(--stack-gap) * 0.5);
+    /* Stabil sifferbredd = inget hopp */
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    font-kerning: none;
   }
 
   /* Diskret settings-knapp i nedre vänstra hörnet */
@@ -156,7 +161,15 @@ function norm(v){
 }
 const t2m=t=>{const [h,m]=norm(t).split(':').map(Number);return (h%24)*60+(m||0);} ;
 const pad2=x=>(x<10?'0':'')+x;
-function fmt(ms){let s=Math.max(0, Math.floor(ms/1000)),h=Math.floor(s/3600);s-=h*3600;let m=Math.floor(s/60);s-=m*60;return h+'h '+m+'m '+pad2(s)+'s';}
+
+/* Stabiliserad formattering: två siffror för timmar, minuter och sekunder */
+function fmt(ms){
+  let s=Math.max(0, Math.floor(ms/1000));
+  let h=Math.floor(s/3600); s-=h*3600;
+  let m=Math.floor(s/60);   s-=m*60;
+  return pad2(h)+'h '+pad2(m)+'m '+pad2(s)+'s';
+}
+
 function sanitizeArray(a){return a.map(p=>({name:String(p.name||'Period'),start:norm(p.start),end:norm(p.end)}));}
 let MEMORY_PERIODS=null;
 function getPeriods(){
@@ -295,3 +308,32 @@ function loop(){
 function openSettings(v){
   settings.style.display=(v===false)?'none':'block';
   storageNote.textContent=HAS_STORAGE?"":"Obs: Lagring låst – använder minneslagring.";
+}
+function rowTpl(p,i){
+  return `<div class="row" data-i="${i}">
+  <input type="text" value="${p.name.replace(/\"/g,'&quot;')}" aria-label="Namn" placeholder="Namn (t.ex. Läggdags)" />
+  <input type="time" value="${norm(p.start)}" aria-label="Start" />
+  <input type="time" value="${norm(p.end)}" aria-label="Slut" />
+  <button class="btn" data-del="${i}">Ta bort</button>
+</div>`;
+}
+function renderRows(){ const rows=$('#rows'); const ps=getPeriods(); rows.innerHTML=ps.map(rowTpl).join(''); }
+function saveRows(){
+  if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
+  const arr=[...document.querySelectorAll('.row')].map(r=>{
+    const ins=[...r.querySelectorAll('input')];
+    return {name:ins[0].value||'Period', start:norm(ins[1].value), end:norm(ins[2].value)};
+  });
+  setPeriods(arr); renderRows(); openSettings(false);
+}
+$('#openSettings').addEventListener('click',()=>{ renderRows(); openSettings(true); });
+$('#close').addEventListener('click',()=>openSettings(false));
+$('#save').addEventListener('click',saveRows);
+$('#add').addEventListener('click',()=>{ const ps=getPeriods(); ps.push({name:'Ny period',start:'12:00',end:'13:00'}); setPeriods(ps); renderRows(); });
+$('#reset').addEventListener('click',()=>{ if(confirm('Återställ perioderna till standard? Dina egna ändringar ersätts.')){ setPeriods(DEFAULT_PERIODS); renderRows(); openSettings(false);} });
+osSyncEl.addEventListener('change',()=>{ setRaw(THEME_KEY, osSyncEl.checked?'1':'0'); applyTheme(); });
+
+(function init(){ if(getRaw(THEME_KEY)==null) setRaw(THEME_KEY,'0'); applyTheme(); loop(); })();
+</script>
+</body>
+</html>
