@@ -56,22 +56,23 @@
     margin-top:calc(var(--stack-gap) * 0.5);
   }
 
-  /* Diskret settings-knapp, flyttad till vänster */
+  /* Diskret settings-knapp i nedre vänstra hörnet */
   .fab{
     position: fixed;
-    left: 12px;   /* flyttad från right till left */
-    top: 12px;
-    width: 36px; height: 36px;  /* lite mindre */
-    border-radius: 10px;
+    left: max(12px, env(safe-area-inset-left) + 8px);
+    bottom: max(12px, env(safe-area-inset-bottom) + 8px);
+    right: auto; top: auto;
+    width: 32px; height: 32px;
+    border-radius: 9px;
     display: grid; place-items: center;
-    background: transparent;    /* ingen tung bakgrund */
-    color: var(--subtle);       /* diskret färg */
+    background: transparent;
+    color: var(--subtle);
     border: 1px solid transparent;
-    font-size: 16px;            /* mindre ikon */
+    font-size: 14px;
     cursor: pointer;
-    opacity: .45;               /* halvtransparent som standard */
+    opacity: .35;
     transition: opacity .2s ease, transform .2s ease, color .2s ease, border-color .2s ease;
-    z-index: 60;                /* över innehållet men under ev. dialog */
+    z-index: 40;
   }
   .fab:hover,
   .fab:focus-visible{
@@ -82,6 +83,10 @@
     outline: none;
   }
   .fab:focus-visible{ box-shadow: 0 0 0 2px color-mix(in oklab, var(--fg) 20%, transparent); }
+
+  @media (max-width: 520px){
+    .fab{ width: 28px; height: 28px; font-size: 13px; }
+  }
 
   .settings{
     position:fixed; inset:0;
@@ -132,10 +137,11 @@ const $ = s => document.querySelector(s);
 const title=$('#title'), subtitle=$('#subtitle'), timeEl=$('#time');
 const settings=$('#settings'), storageNote=$('#storageNote');
 const osSyncEl=$('#osSync');
-const LAT=59.6099, LON=16.5448; // Västerås
+const LAT=59.6099, LON=16.5448;
 const DEFAULT_PERIODS=[{name:"Morgon",start:"06:30",end:"08:00"},{name:"Förmiddag",start:"08:00",end:"12:00"},{name:"Lunch",start:"12:00",end:"13:00"},{name:"Eftermiddag",start:"13:00",end:"17:00"},{name:"Kväll",start:"17:00",end:"22:15"},{name:"Kvällsrutin",start:"22:15",end:"22:30"},{name:"Natt",start:"22:30",end:"06:30"}];
 const HAS_STORAGE=(()=>{try{localStorage.setItem('_x','1');localStorage.removeItem('_x');return true;}catch(e){return false;}})();
-const getRaw=k=>HAS_STORAGE?localStorage.getItem(k):null; const setRaw=(k,v)=>{try{if(!HAS_STORAGE)return false;localStorage.setItem(k,v);return true;}catch(e){return false;}};
+const getRaw=k=>HAS_STORAGE?localStorage.getItem(k):null;
+const setRaw=(k,v)=>{try{if(!HAS_STORAGE)return false;localStorage.setItem(k,v);return true;}catch(e){return false;}};
 const THEME_KEY='walltimer.theme.osSync';
 
 function norm(v){
@@ -289,32 +295,3 @@ function loop(){
 function openSettings(v){
   settings.style.display=(v===false)?'none':'block';
   storageNote.textContent=HAS_STORAGE?"":"Obs: Lagring låst – använder minneslagring.";
-}
-function rowTpl(p,i){
-  return `<div class="row" data-i="${i}">
-  <input type="text" value="${p.name.replace(/\"/g,'&quot;')}" aria-label="Namn" placeholder="Namn (t.ex. Läggdags)" />
-  <input type="time" value="${norm(p.start)}" aria-label="Start" />
-  <input type="time" value="${norm(p.end)}" aria-label="Slut" />
-  <button class="btn" data-del="${i}">Ta bort</button>
-</div>`;
-}
-function renderRows(){ const rows=$('#rows'); const ps=getPeriods(); rows.innerHTML=ps.map(rowTpl).join(''); }
-function saveRows(){
-  if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
-  const arr=[...document.querySelectorAll('.row')].map(r=>{
-    const ins=[...r.querySelectorAll('input')];
-    return {name:ins[0].value||'Period', start:norm(ins[1].value), end:norm(ins[2].value)};
-  });
-  setPeriods(arr); renderRows(); openSettings(false);
-}
-$('#openSettings').addEventListener('click',()=>{ renderRows(); openSettings(true); });
-$('#close').addEventListener('click',()=>openSettings(false));
-$('#save').addEventListener('click',saveRows);
-$('#add').addEventListener('click',()=>{ const ps=getPeriods(); ps.push({name:'Ny period',start:'12:00',end:'13:00'}); setPeriods(ps); renderRows(); });
-$('#reset').addEventListener('click',()=>{ if(confirm('Återställ perioderna till standard? Dina egna ändringar ersätts.')){ setPeriods(DEFAULT_PERIODS); renderRows(); openSettings(false);} });
-osSyncEl.addEventListener('change',()=>{ setRaw(THEME_KEY, osSyncEl.checked?'1':'0'); applyTheme(); });
-
-(function init(){ if(getRaw(THEME_KEY)==null) setRaw(THEME_KEY,'0'); applyTheme(); loop(); })();
-</script>
-</body>
-</html>
